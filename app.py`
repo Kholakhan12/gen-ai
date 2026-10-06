@@ -1,0 +1,57 @@
+import streamlit as st
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, AIMessage
+
+# Page configuration
+st.set_page_config(page_title="AI Chat App", page_icon="🤖")
+
+st.title("🤖 AI Chatbot")
+st.caption("Powered by Llama 3.2 via Ollama and LangChain")
+
+# Initialize the LLM
+# We use st.cache_resource to avoid re-initializing the model on every rerun
+@st.cache_resource
+def load_llm():
+    return ChatOllama(
+        model="llama3.2:latest",
+        temperature=0.7,
+    )
+
+llm = load_llm()
+
+# Initialize chat history in session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    if isinstance(message, HumanMessage):
+        with st.chat_message("user"):
+            st.markdown(message.content)
+    elif isinstance(message, AIMessage):
+        with st.chat_message("assistant"):
+            st.markdown(message.content)
+
+# React to user input
+if prompt := st.chat_input("What is on your mind?"):
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Add user message to chat history
+    st.session_state.messages.append(HumanMessage(content=prompt))
+
+    # Generate response
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+
+        # Stream the response for a better UI experience
+        for chunk in llm.stream(st.session_state.messages):
+            full_response += chunk.content
+            message_placeholder.markdown(full_response + "▌")
+
+        message_placeholder.markdown(full_response)
+
+    # Add assistant response to chat history
+    st.session_state.messages.append(AIMessage(content=full_response))
